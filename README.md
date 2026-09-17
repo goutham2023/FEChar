@@ -43,8 +43,8 @@ FreeFem++ -version
 ### 2. Clone and run
 
 ```bash
-git clone https://github.com/<you>/FECHAR.git
-cd FECHAR
+git clone https://github.com/<you>/FE-ChARM.git
+cd FE-ChARM
 FreeFem++ main.edp
 ```
 
@@ -60,12 +60,12 @@ matplotlib, MATLAB, gnuplot, Excel) will read it directly:
 
 | File | Columns | What it is |
 |---|---|---|
-| `<casename>/rho_<t>.dat` | `x`, `T`, `pressure`, `density` | Full through-thickness profile at output time `t` (one file per 0.1 s of simulated time) |
-| `<casename>/BC.dat` | `t`, `ṡ` (recession rate), `x_wall` | Surface recession history |
+| `<casename>/out_<t>.dat` | `x`, `T`, `pressure`, `density` | Full through-thickness profile at output time `t` (one file per 0.1 s of simulated time) |
+| `<casename>/BCrate.dat` | `t`, `ṡ` (recession rate), `x_wall` | Surface recession history |
 | `<casename>/boundarydat.dat` | `t`, `p_wall`, `T_wall`, `B'_g`, `B'_c`, `h_w` | Wall boundary-condition history |
-| `<casename>/WEnergyBalance.dat` | `t`, then each surface energy-balance term | Term-by-term breakdown of the wall flux balance |
-| `<casename>/inflocv.dat`, `inflocc.dat` | `t`, threshold density, `x` | Position of the virgin-front / char-front over time |
-| `<casename>/mgeq.dat` | `t`, pyrolysis gas mass flux, char mass flux | Mass-balance history |
+| `<casename>/EnergyBalance.dat` | `t`, then each surface energy-balance term | Term-by-term breakdown of the wall flux balance |
+| `<casename>/virgin_loc.dat`, `char_loc.dat` | `t`, threshold density, `x` | Position of the virgin-front / char-front over time |
+| `<casename>/massflux.dat` | `t`, pyrolysis gas mass flux, char mass flux | Mass-balance history |
 | `<casename>/info.dat` | — | Human-readable run header + summary (what config produced this run) |
 
 
