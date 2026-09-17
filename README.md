@@ -1,6 +1,6 @@
-# FEChar
+# FE-ChARM
 
-**F**inite **E**lement-based **Char**ring and **A**blation **R**esponse model
+**F**inite **E**lement-based **Ch**arring and **A**blation **R**esponse model
 
 A finite-element solver for the thermal, pyrolysis-gas-transport, and
 surface-ablation response of charring ablative thermal protection system
