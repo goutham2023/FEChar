@@ -1,0 +1,128 @@
+// ============================================================
+// fespace_init_varf.idp
+// Finite element spaces, all field variables,
+// ============================================================
+
+
+
+fespace Vh(Msh, P1);
+
+// solid temperature / test function / time-history levels
+Vh T, v, Told, Told2, Tp;
+
+// density (decomposition kinetics) and derived quantities
+Vh rho, oldrho, rhoA, oldrhoA, rhoB, oldrhoB, rhoC, oldrhoC, dorho, alpha, dalpha, R;
+
+// solid thermal properties
+Vh K, cp, hs, hvir, hchar, hbarn, hbarn2;
+
+// pyrolysis gas / Darcy flow fields
+Vh pr, prold, prold2, q, mg1, mg2, mgnet, Mu, phi, phid, kp, rhog, gamma, cpg, hg, prp, sdot2;
+
+// scalar surface/energy-balance quantities (updated once per timestep)
+real Bg, Bg2, Bc, B, reuech, sdot, s, Hr, hgb, Tval2, hw;
+real dummy, dummy1, dummy2, dummy3, srce, Tamb1, abp, emm, hcb, mnet, mc1, Lcurrent, qcond, qconv;
+
+
+
+// -----------------------------------------------------------------------------
+// initial conditions
+// -----------------------------------------------------------------------------
+func Tin = 300;
+T = Tin; Told = Tin; Told2 = Tin;
+Tamb1 = Tin;
+Tp = Tin;
+mg1 = mg2 = 0;
+real Tval;
+oldrhoA = rhoA = 300;
+oldrhoB = rhoB = 900;
+oldrhoC = rhoC = 1600;
+alpha = 0;
+oldrho = rho = rhov;
+Mu = 8.688E-06;
+phi = 0.8; kp = 1.6e-11;
+pr = 101325;
+prold = pr; prold2 = pr;
+
+real Twall = 300;
+real prwall= 101325;
+
+// =============================================================================
+// Variational formulations
+// -----------------------------------------------------------------------------
+// Two BC formulations are pre-compiled; the timestep loop picks which pair
+// to assemble based on bcType. Both share the same interior conduction /
+// storage / advection terms -- they only differ in how the surface node
+// is closed.
+// =============================================================================
+
+// ---- CONVECTIVE / B' formulation ----
+varf heatConv(T, v) =
+    int1d(Msh)(
+        K * dx(T) * dx(v)
+      + v * T * 1.5 * ((pr / (R * Told)) * phi * cpg + rho * cp) * idt
+    );
+
+varf heat2Conv(uh, v) =
+    int1d(Msh)(
+        +2 * v * Told * ((pr / (R * Told)) * phi * cpg + rho * cp) * idt
+        - 0.5 * v * Told2 * ((pr / (R * Told)) * phi * cpg + rho * cp) * idt
+        + (hg - hbarn2) * dorho * v
+        + v * mg1 * dx(hg)
+    )
+    + int0d(Msh, frontwall)(
+        v * (reuech * (Hr - (1 + B) * hw + Bc * hcb + Bg * hgb) - srce)
+    );
+
+
+// ---- CONVECTIVE flux ----
+
+varf heat2ConvQ(uh, v) =
+    int1d(Msh)(
+        +2 * v * Told * ((pr / (R * Told)) * phi * cpg + rho * cp) * idt
+        - 0.5 * v * Told2 * ((pr / (R * Told)) * phi * cpg + rho * cp) * idt
+        + (hg - hbarn2) * dorho * v
+        + v * mg1 * dx(hg)
+    )
+    + int0d(Msh, frontwall)(
+        v * (qconv- srce)
+    );
+
+// ---- DIRICHLET formulation ----
+varf heatDirichlet(T, v) =
+    int1d(Msh)(
+        K * dx(T) * dx(v)
+      + v * T * 1.5 * ((pr / (R * Told)) * phi * cpg + rho * cp) * idt
+    )
+    + on(frontwall, T = Twall);
+
+varf heat2Dirichlet(T, v) =
+    int1d(Msh)(
+        +2 * v * Told * ((pr / (R * Told)) * phi * cpg + rho * cp) * idt
+        - 0.5 * v * Told2 * ((pr / (R * Told)) * phi * cpg + rho * cp) * idt
+        + (hg - hbarn2) * dorho * v
+        + v * mg1 * dx(hg)
+    )
+    + on(frontwall, T = Twall);
+
+varf agas(pr, q) =
+    int1d(Msh)(
+        pr * phi * 1.5 * idt * q / (T * R)
+      + 1.5 * pr * phi * q * T * idt / (pow(T, 2) * R)
+      - 2 * pr * phi * Told * idt * q / (pow(T, 2) * R)
+      + 0.5 * pr * phi * Told2 * idt * q / (pow(T, 2) * R)
+      + (kp / (T * R * Mu)) * prold * dx(pr) * dx(q)
+    )
+    + on(frontwall, pr = prwall);
+
+varf Lgas(pr, q) =
+    int1d(Msh)(
+        (2 * prold * idt * phi * q / (T * R))
+      - (0.5 * prold2 * idt * phi * q / (T * R))
+      + (rhov - rhoc - (prold / (R * T)) * (phic - phiv)) * dalpha * q
+    )
+    + on(frontwall, pr = prwall);
+
+
+
+

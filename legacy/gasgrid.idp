@@ -1,0 +1,61 @@
+int nP, nT;
+ISTP2>> nP >> nT;
+
+real[int] Pvals2(nP), Tvals2(nT);
+
+// Read P
+for (int i = 0; i < nP; i++)
+    ISTP2>> Pvals2[i];
+
+// Read T
+for (int j = 0; j < nT; j++)
+    ISTP2>> Tvals2[j];
+
+// Allocate grids
+real[int,int] Mugrid(nP,nT);
+real[int,int] cpgrid(nP,nT);
+real[int,int] gammagrid(nP,nT);
+real[int,int] Hgrid(nP,nT);
+
+// Skip comment line
+string line;
+getline(ISTP2,line); // finish previous line
+getline(ISTP2,line); // skip "# Mu"
+
+// Read Mu grid
+for (int j = 0; j < nT; j++)
+{
+    for (int i = 0; i < nP; i++)
+    {
+        ISTP2>> Mugrid(i,j);
+    }
+}
+getline(ISTP2,line); // finish previous line
+getline(ISTP2,line); // skip "# cp"
+for (int j = 0; j < nT; j++)
+{
+    for (int i = 0; i < nP; i++)
+    {
+        ISTP2>> cpgrid(i,j);
+    }
+}
+getline(ISTP2,line);// finish previous line
+getline(ISTP2,line); // skip "# gamma"
+
+for (int j = 0; j < nT; j++)
+{
+    for (int i = 0; i < nP; i++)
+    {
+        ISTP2>> gammagrid(i,j);
+    }
+}
+getline(ISTP2,line);// finish previous line
+getline(ISTP2,line); // skip "# H"
+
+for (int j = 0; j < nT; j++)
+{
+    for (int i = 0; i < nP; i++)
+    {
+        ISTP2>> Hgrid(i,j);
+    }
+}
