@@ -1,4 +1,4 @@
-# FECHAR
+# FEChar
 
 **F**inite **E**lement-based **Char**ring and **A**blation **R**esponse model
 
