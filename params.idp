@@ -17,7 +17,7 @@ string casename ="conv";
 // -----------------------------------------------------------------------------
 // Physical / numerical constants
 // -----------------------------------------------------------------------------
-real dt   = 0.01;             // timestep [s]
+real dt   = 0.005;             // timestep [s]
 int ele = 500;  // number of mesh elements
 real L    = 0.05;              // domain length [m]
 real tend = 3;               // end time [s]
