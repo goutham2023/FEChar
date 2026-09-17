@@ -1,4 +1,4 @@
-# FE-ChARM
+# FEChAR
 
 **F**inite **E**lement-based **Ch**arring and **A**blation **R**esponse model
 
