@@ -60,7 +60,7 @@ with pyrolysis kinetics providing the decomposition source terms.
 The gas-phase pressure distribution inside the porous decomposing material is
 governed by the combined gas mass-conservation and Darcy-flow equation:
 
-\[
+$$
 \frac{\partial}{\partial t}
 \left(
 \frac{\phi P}{RT}
@@ -73,24 +73,24 @@ governed by the combined gas mass-conservation and Darcy-flow equation:
 +
 (\rho_v-\rho_c)\frac{\partial\alpha}{\partial t}.
 \tag{1}
-\]
+$$
 
-Here, \(\phi\) is the porosity, \(K_p\) is the isotropic permeability,
-\(\mu\) is the dynamic gas viscosity, \(R\) is the effective specific gas
-constant, and \(P\) is the gas pressure. The variable \(\alpha\in[0,1]\)
+Here, $\phi$ is the porosity, $K_p$ is the isotropic permeability,
+$\mu$ is the dynamic gas viscosity, $R$ is the effective specific gas
+constant, and $P$ is the gas pressure. The variable $\alpha\in[0,1]$
 denotes the local extent of pyrolysis.
 
 The source term
 
-\[
+$$
 (\rho_v-\rho_c)\frac{\partial\alpha}{\partial t}
-\]
+$$
 
 represents the generation of gas associated with solid decomposition, where
-\(\rho_v\) and \(\rho_c\) are the virgin and char densities, respectively.
+$\rho_v$ and $\rho_c$ are the virgin and char densities, respectively.
 
 For the 1D through-thickness implementation, the spatial divergence reduces
-to the corresponding derivative in \(x\).
+to the corresponding derivative in $x$.
 
 The pyrolysis-gas mass flux is obtained from Darcy's law and is subsequently
 used in the energy equation and in the surface blowing calculation.
@@ -99,7 +99,7 @@ used in the energy equation and in the surface blowing calculation.
 
 The transient thermal response of the degrading material is governed by
 
-\[
+$$
 \rho c_p\frac{\partial T}{\partial t}
 =
 \nabla\cdot(k\nabla T)
@@ -108,43 +108,43 @@ The transient thermal response of the degrading material is governed by
 +
 (h_g-\bar h)\frac{\partial\rho}{\partial t}.
 \tag{2}
-\]
+$$
 
 The first term on the right-hand side represents heat conduction through the
 porous material. The second term represents enthalpy transport by the
 pyrolysis gas. The final term accounts for the enthalpy exchange associated
 with conversion of solid material into gas.
 
-The effective bulk volumetric heat capacity \(\rho c_p\) and thermal
-conductivity \(k\) vary with the state of decomposition. The pyrolysis-gas
-mass-flux vector is \(\dot{\mathbf m}_g\), \(h_g\) is the specific enthalpy
-of the pyrolysis gas, and \(\bar h\) is the mixture enthalpy.
+The effective bulk volumetric heat capacity $\rho c_p$ and thermal
+conductivity $k$ vary with the state of decomposition. The pyrolysis-gas
+mass-flux vector is $\dot{\mathbf m}_g$, $h_g$ is the specific enthalpy
+of the pyrolysis gas, and $\bar h$ is the mixture enthalpy.
 
 For the 1D model, the energy equation is solved through the material
-thickness using the corresponding \(x\)-direction fluxes.
+thickness using the corresponding $x$-direction fluxes.
 
 ### 2.3 Pyrolysis kinetics closure
 
 The overall extent of pyrolysis appearing in Eqs. (1) and (2) is obtained by
 combining the individual decomposition reactions:
 
-\[
+$$
 \frac{\partial\alpha}{\partial t}
 =
 \sum_i x_i\frac{\partial\alpha_i}{\partial t},
 \qquad
 \sum_i x_i=1.
 \tag{3}
-\]
+$$
 
-Here, \(\alpha_i\) is the local extent of reaction of constituent \(i\), and
-\(x_i\) is its mass-loss factor, representing its fractional contribution to
+Here, $\alpha_i$ is the local extent of reaction of constituent $i$, and
+$x_i$ is its mass-loss factor, representing its fractional contribution to
 the total mass loss.
 
 Each constituent decomposition reaction is described using an
 nth-order Arrhenius law,
 
-\[
+$$
 \frac{\partial\alpha_i}{\partial t}
 =
 B_i
@@ -153,10 +153,10 @@ B_i
 \right)
 (1-\alpha_i)^{n_i}.
 \tag{4}
-\]
+$$
 
-Here, \(B_i\) is the pre-exponential factor, \(E_{a,i}\) is the activation
-energy, and \(n_i\) is the reaction order for constituent \(i\).
+Here, $B_i$ is the pre-exponential factor, $E_{a,i}$ is the activation
+energy, and $n_i$ is the reaction order for constituent $i$.
 
 The model uses a three-component decomposition representation for the
 carbon–phenolic composite, with the individual reaction rates providing the
@@ -171,15 +171,15 @@ decomposition state.
 
 ## 3. Surface thermochemistry and boundary conditions
 
-At the material–gas interface, the wall temperature \(T_w\) and surface
-recession rate \(\dot s\) are coupled to the external flight environment.
+At the material–gas interface, the wall temperature $T_w$ and surface
+recession rate $\dot s$ are coupled to the external flight environment.
 The surface is closed through a nonlinear surface energy balance.
 
 ### 3.1 General surface energy balance
 
 The surface energy balance is
 
-\[
+$$
 q''_{\mathrm{conv,bl}}
 +
 \alpha_w q''_{\mathrm{rad}}
@@ -196,21 +196,21 @@ q''_{\mathrm{cond}}
 =
 0.
 \tag{5}
-\]
+$$
 
 Here:
 
-- \(q''_{\mathrm{conv,bl}}\) is the convective heat flux delivered by the
+- $q''_{\mathrm{conv,bl}}$ is the convective heat flux delivered by the
   boundary layer;
-- \(q''_{\mathrm{rad}}\) is the incident radiative heat flux;
-- \(\alpha_w\) is the wall absorptivity;
-- \(\epsilon_w\) is the wall emissivity;
-- \(\sigma\) is the Stefan–Boltzmann constant;
-- \(q''_{\mathrm{cond}}\) is the conductive heat flux into the material;
-- \((\rho_v)_w h_w\) represents the enthalpy carried away by the net mass
+- $q''_{\mathrm{rad}}$ is the incident radiative heat flux;
+- $\alpha_w$ is the wall absorptivity;
+- $\epsilon_w$ is the wall emissivity;
+- $\sigma$ is the Stefan–Boltzmann constant;
+- $q''_{\mathrm{cond}}$ is the conductive heat flux into the material;
+- $(\rho_v)_w h_w$ represents the enthalpy carried away by the net mass
   blown from the surface;
-- \(\dot m''_c h_c\) is the enthalpy flux associated with char removal; and
-- \(\dot m''_g h_g\) is the enthalpy flux associated with pyrolysis-gas
+- $\dot m''_c h_c$ is the enthalpy flux associated with char removal; and
+- $\dot m''_g h_g$ is the enthalpy flux associated with pyrolysis-gas
   injection.
 
 The surface thermochemistry and boundary-layer quantities are coupled
@@ -222,31 +222,31 @@ transfer depend on one another.
 The non-dimensional pyrolysis-gas, char, and total blowing rates are defined
 as
 
-\[
+$$
 B'_g
 =
 \frac{\dot m''_g}
 {\rho_e u_e C_M},
 \tag{6a}
-\]
+$$
 
-\[
+$$
 B'_c
 =
 \frac{\dot m''_c}
 {\rho_e u_e C_M},
 \tag{6b}
-\]
+$$
 
 and
 
-\[
+$$
 B'=B'_g+B'_c.
 \tag{6c}
-\]
+$$
 
-Here, \(\rho_e\) and \(u_e\) are the density and velocity at the
-boundary-layer edge, and \(C_M\) is the mass-transfer Stanton number.
+Here, $\rho_e$ and $u_e$ are the density and velocity at the
+boundary-layer edge, and $C_M$ is the mass-transfer Stanton number.
 
 The pyrolysis-gas blowing parameter is determined by the in-depth
 pyrolysis-gas mass flux, while the char blowing parameter represents mass
@@ -258,13 +258,13 @@ The external atmospheric composition is supplied through the elemental
 composition at the boundary-layer edge. Under the assumption of chemical
 equilibrium at the wall and a unity Lewis number,
 
-\[
+$$
 C_M=C_H.
-\]
+$$
 
-For each element \(k\), elemental conservation at the surface requires
+For each element $k$, elemental conservation at the surface requires
 
-\[
+$$
 Y_{k,e}
 +
 B'_gY_{k,g}
@@ -273,16 +273,16 @@ B'_cY_{k,c}
 =
 (1+B')Y_{k,w}.
 \tag{7}
-\]
+$$
 
 Here:
 
-- \(Y_{k,e}\) is the mass fraction of element \(k\) at the
+- $Y_{k,e}$ is the mass fraction of element $k$ at the
   boundary-layer edge;
-- \(Y_{k,g}\) is the mass fraction of element \(k\) in the pyrolysis gas;
-- \(Y_{k,c}\) is the mass fraction of element \(k\) in the char contribution;
+- $Y_{k,g}$ is the mass fraction of element $k$ in the pyrolysis gas;
+- $Y_{k,c}$ is the mass fraction of element $k$ in the char contribution;
   and
-- \(Y_{k,w}\) is the mass fraction of element \(k\) in the wall-equilibrium
+- $Y_{k,w}$ is the mass fraction of element $k$ in the wall-equilibrium
   state.
 
 This relation provides the surface chemical closure while allowing the
@@ -293,7 +293,7 @@ external atmospheric elemental composition to vary.
 With the boundary-layer assumptions above, the general surface energy
 balance can be written in the standard boundary-layer form
 
-\[
+$$
 \rho_eu_eC_H
 \left[
 H_e-h_w
@@ -313,18 +313,18 @@ q''_{\mathrm{cond}}
 =
 0.
 \tag{8}
-\]
+$$
 
 Equivalently, the terms in the square brackets can be grouped as
 
-\[
+$$
 H_e-(1+B')h_w+B'_c h_c+B'_g h_g.
-\]
+$$
 
-Here, \(H_e\) is the boundary-layer-edge total enthalpy and \(C_H\) is the
+Here, $H_e$ is the boundary-layer-edge total enthalpy and $C_H$ is the
 heat-transfer Stanton number for the non-blowing reference state.
 
-The wall enthalpy \(h_w\) and the char/gas thermochemical state are obtained
+The wall enthalpy $h_w$ and the char/gas thermochemical state are obtained
 from the surface thermochemistry calculation. In the present formulation,
 the wall-equilibrium state is evaluated with the thermochemical surface
 model, allowing the external elemental composition to be changed directly
@@ -336,7 +336,7 @@ atmosphere.
 The reduction in heat transfer caused by pyrolysis-gas and char injection is
 included through a blowing correction to the heat-transfer Stanton number:
 
-\[
+$$
 \frac{C_H}{C_{H0}}
 =
 \frac{e^\zeta-1}{\zeta},
@@ -346,9 +346,9 @@ included through a blowing correction to the heat-transfer Stanton number:
 \left(\dot m''_g+\dot m''_c\right)}
 {\rho_eu_eC_{H0}}.
 \tag{9}
-\]
+$$
 
-Here, \(C_{H0}\) is the zero-blowing Stanton number and \(\lambda\) is the
+Here, $C_{H0}$ is the zero-blowing Stanton number and $\lambda$ is the
 blowing-correction coefficient.
 
 The total injected/removing mass flux therefore affects the surface heat
@@ -362,13 +362,13 @@ contributions enter the surface energy and elemental balances separately.
 The surface recession is determined from the char mass-removal rate. The
 recession velocity is related to the char blowing parameter through
 
-\[
+$$
 \dot s
 =
 \frac{B'_c\rho_e}{\rho_c},
-\]
+$$
 
-where \(\rho_c\) is the char density.
+where $\rho_c$ is the char density.
 
 The instantaneous material surface is therefore displaced as ablation
 proceeds. The computational domain is updated to follow this receding
@@ -381,9 +381,9 @@ surface.
 The external atmosphere is represented by its elemental composition. For the
 C–N–O calculations, the atmospheric composition satisfies
 
-\[
+$$
 Y_C+Y_N+Y_O=1.
-\]
+$$
 
 Changing these elemental fractions changes the chemical-equilibrium state at
 the ablating wall and consequently changes the wall temperature, species
@@ -396,11 +396,11 @@ graphitic carbon, C(gr), in the solid phase.
 
 The pyrolysis-gas elemental composition used in the surface calculation is
 
-\[
+$$
 Y_C=0.206,\qquad
 Y_H=0.679,\qquad
 Y_O=0.115.
-\]
+$$
 
 The external environment can then be varied independently in the C–N–O
 composition space while retaining the same ablative material and imposed
@@ -424,9 +424,9 @@ gradients near the ablating boundary.
 ### 6.2 Time discretization
 
 The transient in-depth equations are integrated using a second-order
-backward-difference formulation. For a generic field \(\phi\),
+backward-difference formulation. For a generic field $\phi$,
 
-\[
+$$
 \left.\frac{\partial\phi}{\partial t}\right|_n
 \approx
 \frac{1}{\Delta t}
@@ -435,9 +435,9 @@ backward-difference formulation. For a generic field \(\phi\),
 -2\phi_{n-1}
 +\frac{1}{2}\phi_{n-2}
 \right).
-\]
+$$
 
-Thus the coefficients \(1.5\), \(-2\), and \(0.5\) appearing in the
+Thus the coefficients $1.5$, $-2$, and $0.5$ appearing in the
 discrete forms correspond to the BDF2 time stencil.
 
 ### 6.3 Nonlinear coupling
