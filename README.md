@@ -1,4 +1,4 @@
-# FEChAR
+# FEChAR1D
 
 **F**inite **E**lement-based **Ch**arring and **A**blation **R**esponse model
 
