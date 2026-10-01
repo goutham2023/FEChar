@@ -1,0 +1,320 @@
+
+macro loc(x)(-343*pow(x,2) -0.774*x +0.992)//
+
+
+macro loc2(x)(-7.51E7*pow(x,6) +201*pow(x,5) +1.72E5*pow(x,4) -0.703*pow(x,3) -331*pow(x,2) +5.49E-4*x +1.01)//
+
+macro loc3(x)(-392*pow(x,2) +6.14E-16*x +0.999)//
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+//Arr calculations
+macro denvarA( x, y)
+  (
+    (x>333.33)?(-1*12000*300*pow(((y-0)/300),3)*exp(-8555.55/x)):0
+  )//
+macro denvarB( x, y)
+  (
+    
+    (x>555.55)?(-1*4.480E+09*900*pow(((y-600)/900),3)*exp(-20444.44/x)):0
+    
+  )//
+macro denvarC( x, y)
+  (
+    ((x>5555.55)?(-1*0*1.600E+03*pow(((y-1600)/1600),0)*exp(-0/x)):0)
+  )//
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//thermal properties
+
+macro emmisivity(x)
+(
+    (x<=221.6) ? 0.9:
+    ((x>=278.8) ? 0.8 : (0.85))
+)//
+
+macro ccal(x,y)
+(
+    (x==rhov) ? cpv(y) :
+    ((x==rhoc) ? cpc(y) : (wf(x)*cpv(y)+(1-wf(x))*cpc(y)))
+)// 
+macro kcal(x,y)
+(
+    (x==rhov) ? kv(y) :
+    ((x==rhoc) ? kc(y) : (wf(x)*kv(y)+(1-wf(x))*kc(y)))
+)// 
+
+macro hbar(temp)((rhov*hv(temp)-rhoc*hc(temp))/(rhov-rhoc))//
+
+
+// macro wf(x)(x-rhoc)*(1/60)//
+macro wf(x)((1-rhoc/x) / (1-rhoc/rhov))//
+// macro wf(x)((1 - rhoc/x) * (1/(rhov - rhoc))) //
+
+macro cpv(x) 
+                (
+                  (x > 1.67E+03) ? (2.010E+03) : 
+                  ((x < 2.556E+02) ? (8.792E+02) :
+                   (-4.39E-10*pow(x,4) +2.33E-6*pow(x,3) -0.00481*pow(x,2) +4.80*pow(x,1) -73.8))
+                )//
+macro kv(x) 
+              (
+                (x >3.333E+03)?(2.78E+00):   
+                ((x < 2.556E+02)?(3.975E-01):
+                (-1.26E-14*pow(x,4) +1.75E-10*pow(x,3) -3.22E-7*pow(x,2) +3.30E-4*pow(x,1) +0.332))
+              )//
+
+macro hv(x) 
+                (
+                  (x >3.333E+03) ? (4.813E+06) : 
+                  ((x <= 2.556E+02) ? (-8.967E+05) :
+                  (22805710 + (-1098268 - 22805710)/(1 + pow((x/7203.023),1.446946))))
+                )//
+
+macro cpc(x)
+                (
+                  (x >2.22E+03) ? (2.152E+03) : 
+                  ((x < 2.556E+02) ? (7.327E+02) :
+                  (2193.628 + (462.6547 - 2193.628)/(1 + pow((x/571.484),2.174592))))
+                )//
+macro kc(x) 
+              (
+                (x >3.333E+03)?(2.318E+00):   
+                ((x < 2.556E+02)?(3.975E-01):
+                (-1.59E-14*pow(x,4) +2.09E-10*pow(x,3) -4.89E-7*pow(x,2) +5.09E-4*pow(x,1) +0.288))
+              )//
+macro hc(x) 
+                (
+                  (x >2.333E+03) ? (5.793E+06) : 
+                  ((x < 2.556E+02) ? (-3.216E+04) :
+                 (3.97E-8*pow(x,4) -3.62E-4*pow(x,3) +1.24*pow(x,2) +223*pow(x,1) -1.70E5))
+                )//
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//porous flow properties
+real kpc=2e-11;
+real kpv=1.6e-11;
+macro kpcal(x)
+(
+  kpv*(1-x)+kpc*x
+)//
+// macro kpcal(x)
+// (
+//     (x>0.98) ? kpc :kpv
+// )// 
+
+real phiv=0.8;
+// real phic=0.842;
+real phic=0.85;
+macro phical(x)
+(
+  phiv*(1-x)+phic*x
+
+)//
+
+// macro phical(x)
+// (
+//     (x>0.98) ? phic :phiv
+// )// 
+
+
+
+
+
+
+
+
+
+func real intrp2(real Z, real M, real[int] X, real[int] Y, real[int] Y2)
+{
+    real W = 0;
+    int var=3775;
+    for (int i = 0; i<var; i++)
+    {
+        if (Z == X[i] && M == Y[i])
+        {
+            W = Y2[i];
+            break;
+        }
+    }
+    
+    return W;
+}
+
+
+
+//the functions defined are verified
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+func real intrp(real Z,real[int] X,real[int] Y,int var)
+{
+real W=0;
+    if(Z<=X(0))
+        W=Y(0);
+    else
+    if(Z>=X(var-1))
+        W=Y(var-1);
+
+    else
+        {for(int i=0;i<var-1;i++)
+           {
+            if (Z==X(i))
+                W=Y(i);
+            else
+            if (Z>X(i) && Z<X(i+1))
+                W=Y(i)+ (Y(i+1)-Y(i))/(X(i+1)-X(i))*(Z-X(i));
+            }
+        }
+return W;
+}
+
+
+
+
+func real intrpbl(real P, real T,
+                 real[int] Pvals2,
+                 real[int] Tvals2,
+                 real[int,int] F)
+{
+    int nP = Pvals2.n;
+    int nT = Tvals2.n;
+
+    int iP = 0, iT = 0;
+    real u = 0, v = 0;
+
+    // ---- Clamp P ----
+    if (P <= Pvals2[0]) {
+        iP = 0; u = 0;
+    }
+    else if (P >= Pvals2[nP-1]) {
+        iP = nP-2; u = 1;
+    }
+    else {
+        for (int i = 0; i < nP-1; i++) {
+            if (Pvals2[i] <= P && P <= Pvals2[i+1]) {
+                iP = i;
+                u = (P - Pvals2[i]) / (Pvals2[i+1] - Pvals2[i]);
+                break;
+            }
+        }
+    }
+
+    // ---- Clamp T ----
+    if (T <= Tvals2[0]) {
+        iT = 0; v = 0;
+    }
+    else if (T >= Tvals2[nT-1]) {
+        iT = nT-2; v = 1;
+    }
+    else {
+        for (int j = 0; j < nT-1; j++) {
+            if (Tvals2[j] <= T && T <= Tvals2[j+1]) {
+                iT = j;
+                v = (T - Tvals2[j]) / (Tvals2[j+1] - Tvals2[j]);
+                break;
+            }
+        }
+    }
+
+    // ---- Bilinear interpolation ----
+    real f00 = F(iP,   iT);
+    real f10 = F(iP+1, iT);
+    real f01 = F(iP,   iT+1);
+    real f11 = F(iP+1, iT+1);
+
+    return (1-u)*(1-v)*f00
+         + u*(1-v)*f10
+         + (1-u)*v*f01
+         + u*v*f11;
+}
+
+
+macro ADAPT()
+{
+   real errh=5e-3,hmax=1e-3,hmin=5e-5,adaptratio=1.2;
+   mT11=0.;mT12=0.;mT22=0.;mS11=0.;mS12=0.;mS22=0.;mV11=0.;mV12=0.;mV22=0.;m11=0.;m12=0.;m22=0.;
+   adaptmesh(Msh,T,Told,metric=[mT11[],mT12[],mT22[]],nomeshgeneration=1,
+            err=errh,hmax=hmax,hmin=hmin,ratio=adaptratio,iso = 0,nbvx=5e5);
+   m11=mT11;
+   m12=mT12;
+   m22=mT22;
+
+   Msh=adaptmesh(Msh,metric=[m11[],m12[],m22[]],nbvx=5e5);
+
+T=T;
+Told=Told;
+}//
+
+macro ADAPT3()
+{
+   real errh=5e-3,hmax=1e-3,hmin=4e-5,adaptratio=1.2;
+   mT11=0.;mT12=0.;mT22=0.;mS11=0.;mS12=0.;mS22=0.;mV11=0.;mV12=0.;mV22=0.;m11=0.;m12=0.;m22=0.;
+   adaptmesh(Msh,T,Told,metric=[mT11[],mT12[],mT22[]],nomeshgeneration=1,
+            err=errh,hmax=hmax,hmin=hmin,ratio=adaptratio,iso = 0,nbvx=5e5);
+   m11=mT11;
+   m12=mT12;
+   m22=mT22;
+
+   Msh=adaptmesh(Msh,metric=[m11[],m12[],m22[]],nbvx=5e5);
+
+T=T;
+Told=Told;
+}//
+
+macro ADAPT2()
+{
+   real errh=5e-3,hmax=2.5e-3,hmin=2.5e-5,adaptratio=1.2;
+   mT11=0.;mT12=0.;mT22=0.;mS11=0.;mS12=0.;mS22=0.;mV11=0.;mV12=0.;mV22=0.;m11=0.;m12=0.;m22=0.;
+   adaptmesh(Msh,T,Told,metric=[mT11[],mT12[],mT22[]],nomeshgeneration=1,
+            err=errh,hmax=hmax,hmin=hmin,ratio=adaptratio,iso = 0,nbvx=5e5);
+   m11=mT11;
+   m12=mT12;
+   m22=mT22;
+
+   Msh=adaptmesh(Msh,metric=[m11[],m12[],m22[]],nbvx=5e5);
+
+T=T;
+Told=Told;
+}//
+
+
+macro ADAPTold()
+{
+   real errh=1e-2,hmax=1e-2,hmin=1e-5,adaptratio=1;
+   mT11=0.;mT12=0.;mT22=0.;mS11=0.;mS12=0.;mS22=0.;mV11=0.;mV12=0.;mV22=0.;m11=0.;m12=0.;m22=0.;
+   adaptmesh(Msh,T,Told,metric=[mT11[],mT12[],mT22[]],nomeshgeneration=1,
+            err=errh,hmax=hmax,hmin=hmin,ratio=adaptratio,iso = 0,nbvx=5e5);
+   m11=mT11;
+   m12=mT12;
+   m22=mT22;
+
+   Msh=adaptmesh(Msh,metric=[m11[],m12[],m22[]],nbvx=5e5);
+
+T=T;
+Told=Told;
+}//
+
+
+
+
+
+macro savetecplot3(Th,namef,v1in,v2in,v3in,cv1,cv2,cv3,zname)
+{
+   ofstream ftec(namef+".dat");
+   ftec<<"VARIABLES= x y "<<cv1<<" "<<cv2<<" "<<cv3<<endl;
+   ftec<<"ZONE T=\""<<zname<<"\", F=FEPOINT, N="<<Th.nv<<", E="<<Th.nt<<", ET=TRIANGLE"<<endl;
+   real[int] Thnv(Th.nv);
+   for[i,Thnvi:Thnv]
+      ftec<<Th(i).x<<" "<<Th(i).y<<" "<<v1in[][i]<<" "<<v2in[][i]<<" "<<v3in[][i]<<endl;
+   ftec<<endl;
+   /* connectivites */
+   real[int] Thnt(Th.nt);
+   for[i,Thnti:Thnt]
+      ftec<< Th[i][0]+1 <<" "<< Th[i][1]+1 <<" "<< Th[i][2]+1 <<endl;
+   cout<<" +++++++++ savetec3var :: file "<<namef+".dat"<<endl;
+}// EOM
+
+

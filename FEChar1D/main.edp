@@ -1,0 +1,340 @@
+// =============================================================================
+// FEChar -- A Finite Element-Based Charring and Ablation Response Model
+// main.edp: 1D solver entry point (run this file with FreeFem++)
+// -----------------------------------------------------------------------------
+// Physics: solid conduction + resin decomposition kinetics + pyrolysis-gas
+// (Darcy) flow + moving-boundary surface recession, coupled at the ablating
+// surface either through a prescribed temperature history (Dirichlet) or a
+// convective/aerothermal heat flux with B'-table ablation chemistry.
+
+//
+// Problem type is selected entirely in params.idp (bcType, useRadiation,
+// useAblation) -- nothing below needs to change to switch cases.
+//
+// File layout:
+//   params.idp       material/BC table data, physical constants, switches
+//   meshsetup.idp    mesh
+//   fespace_init_varf.idp  FE space, field declarations, initial conditions
+//   main.edp         this file: time loop
+// =============================================================================
+
+verbosity = 0;
+load "msh3"
+load "iovtk"
+
+include "params.idp"
+include "Datafolder/tacotdata/macro2.idp"      // material property correlations (rho/K/cp/h vs T)
+include "Datafolder/bc/Boundary1.idp"          // time-history BC macros (Tnew*, reuech, hblg, qconvbc, ...)
+include "Datafolder/Macro_operator.idp"
+include "meshsetup.idp"
+include "fespace_init_varf.idp"
+system("rm -rf " + casename);
+system("mkdir " + casename);
+
+ofstream OST(casename + "/mgeq.dat");
+ofstream OST2(casename + "/info.dat");
+ofstream OST3(casename + "/inflocv.dat");
+ofstream OST4(casename + "/inflocc.dat");
+ofstream OST5(casename + "/BC.dat");
+ofstream OST6(casename + "/boundarydat.dat");
+ofstream OST7(casename + "/WEnergyBalance.dat");
+
+
+OST2 << "Problem Parameters:" << endl
+     << "------------------------------------------------------" << endl
+     << "BC type: " << (bcType == 0 ? "Dirichlet" : bcType == 1 ? "Convective/B'" : "Convective/Q") << endl
+     << "Radiation: " << (useRadiation ? "ON" : "OFF") << endl
+     << "Ablation (recession): " << (useAblation ? "ON" : "OFF") << endl
+     << "End time: " << tend << " s" << endl
+     << "Domain length in x: " << L << " m" << endl
+     << "Total number of elements: " << Msh.nt << endl
+     << "Biasing factor: " << topower << endl
+     << "Timestep (dt): " << dt << " s" << endl
+     << "------------------------------------------------------" << endl;
+
+if (bcType == 0 && (useRadiation || useAblation)) {
+    cout << "NOTE: bcType=0 (Dirichlet) ignores useRadiation/useAblation -- "
+         << "the wall energy balance those switches gate does not exist "
+         << "when the surface temperature is prescribed directly." << endl;
+}
+
+
+
+// =============================================================================
+// Time loop
+// =============================================================================
+real t;
+for (t = 0; t <= tend + 1E-6; t += dt) {
+
+    // ---- decomposition kinetics / density update (material model) ----
+    // TACOT's virgin composite is treated as three independently-decomposing
+    // constituents (A, B, C -- roughly: resin components + reinforcement).
+    rhoA = oldrhoA + denvarA(Told, oldrhoA) * dt;
+    rhoB = oldrhoB + denvarB(Told, oldrhoB) * dt;
+    rhoC = oldrhoC + denvarC(Told, oldrhoC) * dt;
+    rho  = ((rhoA + rhoB) * vf2 + (1 - vf2) * rhoC) * 0.2;
+    alpha = (rhov - rho) / (rhov - rhoc);
+    phi = phical(alpha);
+    kp  = kpcal(alpha);
+    dorho = (rho - oldrho) / dt;
+    dalpha = dorho / (rhoc - rhov);
+
+
+
+    // Wall temperature/pressure history for this step. For bcType=0 these
+    // directly prescribe the boundary condition. 
+    if (bcType == 0) 
+        Twall= Tnew(t);
+    else
+        Twall= T[][0];
+    
+    prwall=prnew(t);
+    // ---- per-node material properties (interpolated from tables) ----
+    // Gas thermodynamic properties (hg, Mu, rhog, cpg, gamma, R) come from
+    // the pyrolysis-gas table (TE3/*ref, loaded in params.idp). Solid
+    // conductivity/specific heat/enthalpy (K, cp, hs) are blended between
+    // pure-virgin and pure-char correlations using the mass-fraction weight
+    // wf(rho) -- see Datafolder/tacotdata/macro2.idp for wf/cpv/kv/... .
+    for (int i = 0; i < Vh.ndof; i++) {
+        Tval = T[][i];
+        real wfrho = wf(rho[][i]);
+        real intrpkv = intrp(Tval, TE4, kvref, num4);
+        real intrpkc = intrp(Tval, TE4, kcref, num4);
+        real intrpcpv = intrp(Tval, TE4, cpvref, num4);
+        real intrpcpc = intrp(Tval, TE4, cpcref, num4);
+        real intrphv = intrp(Tval, TE4, hvref, num4);
+        real intrphc = intrp(Tval, TE4, hcref, num4);
+
+        hg[][i] = intrp(Tval, TE3, Hpref, num);
+        Mu[][i] = intrp(Tval, TE3, Muref, num);
+        rhog[][i] = intrp(Tval, TE3, rhogref, num);
+        cpg[][i] = intrp(Tval, TE3, cpgref, num);
+        gamma[][i] = intrp(Tval, TE3, gammaref, num);
+        R[][i] = cpg[][i] * (gamma[][i] - 1) / gamma[][i];
+
+        if (rho[][i] == rhov) {
+            K[][i] = intrpkv; cp[][i] = intrpcpv; hvir[][i] = intrphv; hs[][i] = hvir[][i];
+        } else if (rho[][i] == rhoc) {
+            K[][i] = intrpkc; cp[][i] = intrpcpc; hchar[][i] = intrphc; hs[][i] = hchar[][i];
+        } else {
+            K[][i] = wfrho * intrpkv + (1 - wfrho) * intrpkc;
+            cp[][i] = wfrho * intrpcpv + (1 - wfrho) * intrpcpc;
+            hs[][i] = wfrho * intrphv + (1 - wfrho) * intrphc;
+        }
+        hbarn[][i]  = (rhov * hvir[][i] - rhoc * hchar[][i]) / (rhov - rhoc);
+        hbarn2[][i] = (hs[][i] * (rhov - rhoc) + rho[][i] * (hvir[][i] - hchar[][i])) / (rhov - rhoc);
+    }
+
+    // ---- pyrolysis gas (Darcy) pressure solve ----
+    // Nonlinear (T- and rho-dependent coefficients) pressure equation, solved
+    // by fixed-point (Picard) iteration: assemble with the previous
+    // iterate's coefficients, solve, check convergence, repeat. Converges
+    // fast because pr changes little between sub-iterations at fixed T.
+    for (int m = 0; m < 50; ++m) {
+        prp[] = pr[];
+        matrix A = agas(Vh, Vh);
+        real[int] Brhs = Lgas(0, Vh);
+        pr[] = A^-1 * Brhs;
+        prp[] -= pr[];
+        if (prp[].linfty < 1e-5) break;
+    }
+    mg1 = ((kp * pr) / (R * T * Mu)) * dx(pr);
+
+    // =========================================================================
+    // SURFACE BOUNDARY CONDITION  (bcType switch)
+    // =========================================================================
+    if (bcType == 1) {
+        // ---- CONVECTIVE / AEROTHERMAL with B' ABLATION TABLES ----
+        // reuech = boundary-layer edge mass flux (rho_e * u_e * Ch), Hr =
+        // recovery enthalpy; both come from the prescribed aerothermal
+        // environment (reuech/hblg in Boundary1.idp). The B' method looks up
+        // the dimensionless pyrolysis-gas (Bg) and char (Bc) blowing
+        // parameters -- and the resulting wall enthalpy hw -- from
+        // pre-tabulated surface-thermochemistry grids (bcgridP*/hwgridP*),
+        // bilinearly interpolated in (Twall, Bg) and linearly in pressure.
+        // The outer loop re-solves for reuech (blowing reduces the effective
+        // heat-transfer coefficient) until Bg/Bc/reuech are mutually consistent.
+        reuech = reuechbc(t);
+        Hr   = hblg(t);
+
+        for (int iter = 0; iter < 10; ++iter) {
+            if (useAblation && reuech > 0) {
+                Bg = mg1[][0] / reuech;
+                Tval = Twall;
+                Tval = max(Twval[0], min(Tval, Twval[NTw-1]));
+                Bg   = max(bgval[0], min(Bg, bgval[Nbg-1]));
+                real Pval = pr[][0];
+                int kP = -1; real uP = 0;
+
+                if (Pval <= Pvals[0]) { kP = 0; uP = 0; }
+                else if (Pval >= Pvals[3]) { kP = 2; uP = 1; }
+                else {
+                    for (int k = 0; k < 3; ++k) {
+                        if (Pvals[k] <= Pval && Pval <= Pvals[k+1]) {
+                            kP = k; uP = (Pval - Pvals[k]) / (Pvals[k+1] - Pvals[k]); break;
+                        }
+                    }
+                }
+
+                if (kP == 0) {
+                    bc1 = bilinearInterp(bcgridP1, Tval, Bg); hw1 = bilinearInterp(hwgridP1, Tval, Bg);
+                    bc2 = bilinearInterp(bcgridP2, Tval, Bg); hw2 = bilinearInterp(hwgridP2, Tval, Bg);
+                } else if (kP == 1) {
+                    bc1 = bilinearInterp(bcgridP2, Tval, Bg); hw1 = bilinearInterp(hwgridP2, Tval, Bg);
+                    bc2 = bilinearInterp(bcgridP3, Tval, Bg); hw2 = bilinearInterp(hwgridP3, Tval, Bg);
+                } else if (kP == 2) {
+                    bc1 = bilinearInterp(bcgridP3, Tval, Bg); hw1 = bilinearInterp(hwgridP3, Tval, Bg);
+                    bc2 = bilinearInterp(bcgridP4, Tval, Bg); hw2 = bilinearInterp(hwgridP4, Tval, Bg);
+                }
+
+                Bc = bc1 * (1 - uP) + bc2 * uP;
+                hw = (hw1 * (1 - uP) + hw2 * uP) * 1000;
+
+                mc1 = Bc * reuech;
+                mnet = (mg1[][0] + mc1) / reuech;
+                mnet = (abs(mnet) < 1e-10) ? (1.0 - mnet/2 + mnet^2/12) : (mnet / (exp(mnet) - 1));
+                reuech = reuechbc(t) * mnet;
+            } else {
+                Bg = 0; Bc = 0; mnet = 0;
+            }
+        }
+
+        B = Bc + Bg;
+        hgb = hg[][0];
+        sdot = useAblation ? Bc * reuech / rhoc : 0.0;
+        hcb = hc(Twall);
+        s = sdot * dt;
+
+        real L2 = Msh(Msh.nv-1).x - Msh(0).x;
+        for (int i = 0; i < Vh.ndof; i++) {
+            real xi = Msh(i).x, x0 = Msh(0).x;
+            sdot2[][i] = sdot * (1 - (xi - x0) / L2);
+        }
+
+        emm = emmisivity(rho[][0]);
+        abp = emm;
+
+        // Surface re-radiation loss (Stefan-Boltzmann), gated by useRadiation;
+        real radSwitch = useRadiation ? 1.0 : 0.0;
+        for (int m = 0; m < 50; m++) {
+            Tp[] = T[];
+            srce = radSwitch * emm * sig * ((Twall + Tamb1) * (Twall - Tamb1) * (Twall^2 + Tamb1^2));
+            matrix A = heatConv(Vh, Vh);
+            real[int] Brhs = heat2Conv(0, Vh);
+            T[] = A^-1 * Brhs;
+            Tp[] -= T[];
+            if (Tp[].linfty < 1e-5) break;
+        }
+        qcond = reuech * (Hr - (1 + B) * hw + Bc * hcb + Bg * hgb) - srce;
+
+    } else if (bcType == 2) {
+        // ---- CONVECTIVE, PRESCRIBED HEAT FLUX (no B' ablation chemistry) ----
+        // For cases where the net wall heat flux history q(t) is already
+        // known (e.g. from a separate aerothermal/CFD analysis) rather than
+        // a boundary-layer edge condition (reuech/Hr) that has to be run
+        // through the B' tables to get there. Skips the reuech/Bg/Bc
+        // iteration entirely -- qconv goes straight into heat2ConvQ. Since
+        // there's no Bc (char blowing) here, there's no recession: this mode
+        // always behaves as if useAblation were off.
+        qconv = qconvbc(t);
+        Bg = 0; Bc = 0; B = 0; mnet = 0; sdot = 0; s = 0;
+        reuech = 0; Hr = 0; hgb = 0; hcb = 0; hw = 0;
+        sdot2 = 0;
+
+        emm = emmisivity(rho[][0]);
+        abp = emm;
+        real radSwitch = useRadiation ? 1.0 : 0.0;
+        srce = radSwitch * emm * sig * ((Twall + Tamb1) * (Twall - Tamb1) * (Twall^2 + Tamb1^2));
+
+        matrix A = heatConv(Vh, Vh);
+        real[int] Brhs = heat2ConvQ(0, Vh);
+        T[] = A^-1 * Brhs;
+        qcond = qconv - srce;
+
+    } else {
+        // ---- DIRICHLET: prescribed wall temperature history ----
+        Bg = 0; Bc = 0; B = 0; mnet = 0; sdot = 0; s = 0;
+        reuech = 0; Hr = 0; hgb = 0; hcb = 0; hw = 0; srce = 0;
+        sdot2 = 0;
+
+        matrix A = heatDirichlet(Vh, Vh);
+        real[int] Brhs = heat2Dirichlet(0, Vh);
+        T[] = A^-1 * Brhs;
+        qcond = 0; // no B'-based wall energy balance when T is prescribed
+    }
+
+    // ---- diagnostic output on a 0.1 s cadence (see io_timestep.idp) ----
+    if (abs(t - round(t/0.1)*0.1) < 1e-7)
+    {
+    string fileName = casename + "/out_" + t + ".dat";
+    ofstream file(fileName);
+    for (int i = 0; i < Vh.ndof; i++)
+        file << Msh(i).x << "\t\t" << T[][i] << "\t\t" << pr[][i] << "\t\t" << rho[][i] << endl;
+
+    // locate the two decomposition fronts (98%-virgin and 2%-char-remaining
+    // density thresholds) by linear interpolation within whichever element
+    // straddles each threshold
+    for (int i = 0; i < Msh.nt; i++) {
+        int i0 = Msh[i][0]; int i1 = Msh[i][1];
+        real x0 = Msh(i0).x, x1 = Msh(i1).x;
+        real rho0 = rho[][i0], rho1 = rho[][i1];
+        if ((rho0 - vir98) * (rho1 - vir98) <= 0 && rho0 != rho1) {
+            real xtarget = x0 + (vir98 - rho0) * (x1 - x0) / (rho1 - rho0);
+            OST3 << t << "\t\t" << vir98 << "\t\t" << xtarget << endl;
+        }
+        if ((rho0 - char02) * (rho1 - char02) <= 0 && rho0 != rho1) {
+            real xtarget = x0 + (char02 - rho0) * (x1 - x0) / (rho1 - rho0);
+            OST4 << t << "\t\t" << char02 << "\t\t" << xtarget << endl;
+        }
+    }
+
+    OST5 << t << "\t\t" << sdot << "\t\t" << Msh(0).x << endl;
+    OST  << t << "\t\t" << mg1[][0] << "\t\t" << mc1 << endl;
+    OST6 << t << "\t\t" << pr[][0] << "\t\t" << Twall << "\t" << Bg << "\t\t" << Bc << "\t\t" << hw << endl;
+    OST7 << t << "\t\t" << reuech*Hr << "\t\t" << reuech*hw << "\t\t" << reuech*B*hw << "\t\t"
+        << reuech*Bc*hcb << "\t\t" << reuech*Bg*hgb << " \t\t " << srce << " \t\t " << qcond << endl;
+
+        }
+
+
+    // ---- surface recession / mesh update ----
+    // Recede the front node by s = sdot*dt this step and linearly scale the
+    // recession of every other node down to zero at the back face (a 1D
+    // ALE-type moving mesh), keeping the back face fixed.
+    snet += s;
+    Lcurrent = Msh(Msh.nv-1).x - Msh(0).x;
+    if (bcType == 1 && useAblation) {
+        Msh = movemesh(Msh, [x + s * (Lcurrent - (x - Msh(0).x)) / Lcurrent]);
+    }
+
+    // FreeFEM idiom: a field is defined on the mesh it was declared on, so
+    // after movemesh() every FE field must be explicitly reinterpolated onto
+    // the new mesh -- `Field = Field` does that reinterpolation in place. A
+    // no-op when useAblation is off (mesh unchanged).
+    T = T; Told = Told; Told2 = Told2; Tp = Tp; sdot2 = sdot2;
+    rho = rho; oldrho = oldrho; rhoA = rhoA; rhoB = rhoB; rhoC = rhoC;
+    oldrhoA = oldrhoA; oldrhoB = oldrhoB; oldrhoC = oldrhoC;
+    dorho = dorho; alpha = alpha; dalpha = dalpha; R = R; 
+    K = K; cp = cp; hs = hs; hvir = hvir; hchar = hchar; hbarn = hbarn; hbarn2 = hbarn2;
+    pr = pr; prold = prold; prold2 = prold2; mg1 = mg1; mg2 = mg2; mgnet = mgnet;
+    Mu = Mu; phi = phi; phid = phid; kp = kp; rhog = rhog; gamma = gamma; cpg = cpg; hg = hg; prp = prp;
+
+    Told2 = Told; Told = T;
+    prold2 = prold; prold = pr;
+    oldrhoA = rhoA; oldrhoB = rhoB; oldrhoC = rhoC;
+    oldrho = rho;
+
+    cout << t << endl;
+    plot(T);
+}
+
+real endTime = clock();
+OST2 << "Domain length after ablation: " << Lcurrent << " m" << endl
+     << "------------------------------------------------------" << endl
+     << "Simulation end time: " << endTime << " seconds" << endl;
+
+cout << "Domain length after ablation: " << Lcurrent << " m" << endl
+     << "------------------------------------------------------" << endl
+     << "Simulation end time: " << endTime << " seconds" << endl;
+
+
