@@ -1,4 +1,4 @@
-# FEChAR1D
+# FEChAR
 
 **F**inite **E**lement-based **Ch**arring and **A**blation **R**esponse model
 
@@ -17,6 +17,10 @@ Given a heating history at the front face, FEChAR marches in time and predicts t
 
 It couples in-depth conduction, pyrolysis, and Darcy gas flow with a surface energy balance driven by pre-tabulated ablation chemistry (B' tables).
 
+
+# FEChAR1D
+
+1D model uses B' formulation for material recession prediction
 ## Quick start
 
 Install [FreeFEM++](https://freefem.org/) (4.x), then:
@@ -88,3 +92,6 @@ There is no automated test suite. Run the default benchmark before and after a c
 ## License
 
 See [`LICENSE`](LICENSE).
+
+# FEChAR1D-M++
+
