@@ -6,10 +6,6 @@ A [FreeFEM](https://freefem.org/) solver for the thermal response, pyrolysis-gas
 
 Governing equations and numerical method: [`docs/THEORY.md`](docs/THEORY.md).
 
-![Surface recession for the four environments](docs/images/ramp_recession_environments.png)
-
-*Example output of the ramp tutorial: surface recession in four atmospheres (quick-test settings, see the tutorial).*
-
 ## What it solves
 
 Given a heating history at the front face, FEChAR marches in time and predicts, through the material thickness:
@@ -34,9 +30,9 @@ It couples in-depth conduction, pyrolysis kinetics and Darcy gas flow with a sur
 **2. Run a tutorial.** Each tutorial is a self-contained folder; **run FreeFEM from inside it**, because all data paths are relative (`../../Datafolder/...`).
 
 ```bash
-git clone https://github.com/<your-username>/FEChAR.git
+git clone https://github.com/goutham2023/FEChAR.git
 cd FEChAR/Tutorials/ConvectiveRamp_Bprime
-FreeFem++ -nw main.edp -tend 2 -ele 100          # short test, about 30 s
+FreeFem++ -nw main.edp -tend 2 -ele 500          # short test, about 30 s
 ```
 
 `-nw` runs without a graphics window. Progress (the current time) prints to the terminal and results go to a folder named after the case, for example `case_Earth_Bprime_high/`.
@@ -52,11 +48,6 @@ python ../../scripts/plot_results.py case_Earth_Bprime_high
 A step-by-step guide to the ramp problem in any environment is in
 [`Tutorials/ConvectiveRamp_Bprime/Tutorial_ConvectiveRamp_Bprime.pdf`](Tutorials/ConvectiveRamp_Bprime/Tutorial_ConvectiveRamp_Bprime.pdf).
 
-### Run time
-
-The default is 120 s of physical time with 500 elements and `dt = 0.005 s`. On the machine used for testing (one core) this costs roughly 70 s of wall-clock time per simulated second, i.e. about 2.5 hours for a full run. For quick tests use `-ele 100` (about 13 s per simulated second, wall temperature within roughly 1 to 3 % of the 500-element result) and a short `-tend`.
-
-**Keep `dt` at 0.005 s or smaller.** With the 0.1 s heating ramp-up, `dt = 0.01 s` made the iteration diverge in tests (on both 100 and 200 elements). The Dirichlet tutorial likewise diverged with 100 elements and `dt = 0.02 s`.
 
 ## Tutorials
 
