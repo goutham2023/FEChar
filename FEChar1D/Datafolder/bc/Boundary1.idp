@@ -1,80 +1,44 @@
-//boundary condition
+// =============================================================================
+// Boundary1.idp  --  time histories of the heating at the front (heated) face
+// -----------------------------------------------------------------------------
+// All histories in the standard FEChAR benchmarks have the same shape: a
+// trapezoidal pulse ("ramp"). One generic macro, pulse(t), describes that shape
+// and every boundary condition is "base + (peak - base) x pulse(t)".
+//
+//   value
+//    peak |            ______________________
+//         |           /                      \
+//         |          /                        \
+//    base |_________/                          \_________________
+//         +---------+--------------------------+--+---------------> t
+//         0     tRampUp                  tRampOff  tRampOff+tRampDown
+//
+// The ramp parameters (tRampUp, tRampOff, tRampDown) and the peak values
+// (reuechPeak, HrPeak, qconvPeak, TwPeak) are set in params.idp.
+// Edit them THERE; this file normally does not need to change.
+//
+// This file must be saved with Unix (LF) line endings (see .gitattributes).
+// =============================================================================
 
-//Dirichlet Benchmark 1 temp
-macro Tnew(x) 
+// pulse(t): dimensionless trapezoid, 0 -> 1 over tRampUp [s], held at 1 until
+//           tRampOff [s], then 1 -> 0 over tRampDown [s], and 0 afterwards.
+macro pulse(tt)
 (
-  (x >= 60.1) ? 300 : 
-  ((x >= 60) ? (1644 - ((x - 60) / 0.1) * (1644 - 300)) : 
-  ((x >= 0.1) ? 1644 : 
-  (300 + (x / 0.1) * (1644 - 300))))
+  ((tt) >= tRampOff + tRampDown) ? 0. :
+  (((tt) >= tRampOff) ? 1. - ((tt) - tRampOff) / tRampDown :
+  (((tt) >= tRampUp) ? 1. : (tt) / tRampUp))
 )//
 
-macro prnew(x) 
-(
-  101325
-)//
+// ---- bcType = 0 : prescribed wall temperature [K]  (Dirichlet) --------------
+// Rises from the ambient temperature Tamb2 to TwPeak and returns to Tamb2.
+macro Tnew(tt) ( Tamb2 + (TwPeak - Tamb2) * pulse(tt) )//
 
+// ---- bcType = 1 : aerothermal edge condition, solved with the B' tables -----
+// rho_e*u_e*C_H : edge mass-transfer coefficient [kg/m^2/s]
+macro reuechbc(tt) ( reuechPeak * pulse(tt) )//
+// H_r : recovery enthalpy [J/kg]; the plateau HrPeak is chosen by `heatbc`
+macro Hrbc(tt) ( HrPeak * pulse(tt) )//
 
-//Convective Benchmark 2.1 and 2.2
-macro reuechbc(x) 
-(
-  (x >= 60.1) ? 0 : 
-  ((x >= 60) ? (0.3 - ((x - 60) / 0.1) * 0.3) : 
-  ((x >= 0.1) ? 0.3 : 
-  (0 + (x / 0.1) * 0.3)))
-)//
-
-macro hblg(x) 
-(
-  (x >= 60.1) ? 0 : 
-  ((x >= 60) ? (1.5E6 - ((x - 60) / 0.1) * (1.5E6 - 0)) : 
-  ((x >= 0.1) ? 1.5E6 :
-  (0 + (x / 0.1) * (1.5E6 - 0))))
-)//
-
-//Convective high enthalpy  Benchmark 2.3
-macro hblg2(x) 
-(
-  (x >= 60.1) ? 0 : 
-  ((x >= 60) ? (2.5E7 - ((x - 60) / 0.1) * (2.5E7 - 0)) : 
-  ((x >= 0.1) ? 2.5E7 :
-  (0 + (x / 0.1) * (2.5E7 - 0))))
-)//
-
-
-
-//Convective, prescribed heat flux (bcType=2 -- no B' tables, no reuech)
-//Edit this to whatever q(t) [W/m^2] you already have, e.g. from a separate
-//aerothermal/CFD analysis, instead of a boundary-layer edge condition.
-macro qconvbc(x) 
-(
-  (x >= 60.1) ? 0 : 
-  ((x >= 60) ? (5E5 - ((x - 60) / 0.1) * 5E5) : 
-  ((x >= 0.1) ? 5E5 :
-  (0 + (x / 0.1) * 5E5)))
-)//
-
-//for ablaiton  Benchmark 2.3 with varying pressure
-macro reuechbc40(x) 
-(
-  (x >= 40.1) ? 0.1E-2 : 
-  ((x >= 40) ? (0.1 - ((x - 40) / 0.1) * (0.1 - 0.1E-2)) : 
-  ((x >= 0.1) ? 0.1 :
-  (0.1E-2 + (x / 0.1) * (0.1 - 0.1E-2))))
-)//
-macro Prcal40(x) 
-(
-  (x >= 40.1) ? 405.3 : 
-  ((x >= 40) ? (10132.5 - ((x - 40) / 0.1) * 10132.5) : 
-  ((x >= 0.1) ? 10132.5 : 
-  (405.3 + (x / 0.1) *(10132.5- 405.3))))
-)//
-
-macro hblg40(x) 
-(
-  (x >= 40.1) ? 0 : 
-  ((x >= 40) ? (2.5E7 - ((x - 40) / 0.1) * (2.5E7 - 0)) : 
-  ((x >= 0.1) ? 2.5E7 :
-  (0 + (x / 0.1) * (2.5E7 - 0))))
-)//
-
+// ---- bcType = 2 : prescribed net wall heat flux [W/m^2] ---------------------
+// Replace this macro by any q(t) you already have (e.g. from a CFD analysis).
+macro qconvbc(tt) ( qconvPeak * pulse(tt) )//

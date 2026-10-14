@@ -1,6 +1,6 @@
-# FECHAR: Governing Equations
+# FEChAR: Governing Equations
 
-FECHAR is a 1D thermo-chemical ablation model for a charring carbon–phenolic ablator (TACOT). The material pyrolyzes, the pyrolysis gas flows through the pores toward the heated face, and the surface recedes by thermochemical ablation. Only the main equations are listed here.
+FEChAR is a 1D thermo-chemical ablation model for a charring carbon–phenolic ablator (TACOT). The material pyrolyzes, the pyrolysis gas flows through the pores toward the heated face, and the surface recedes by thermochemical ablation. Only the main equations are listed here.
 
 ## 1. In-depth response
 

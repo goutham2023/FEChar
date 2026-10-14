@@ -1,0 +1,236 @@
+// =============================================================================
+// params.idp  --  ALL user settings, constants, and data loading
+// -----------------------------------------------------------------------------
+// This is the only file you normally need to edit.
+//
+// Quick overrides without editing this file (command line):
+//     FreeFem++ -nw main.edp -env Mars -heat low -tend 10 -ele 100 -dt 0.02
+//     -env   Earth | Mars | Venus | Titan      (bcType = 1 : B' tables)
+//     -heat  low | intermediate | high         (bcType = 1 : heating level)
+//     -tend  end time [s]     -ele  number of elements     -dt  time step [s]
+//     -tup   ramp-up time [s]   -toff  start of ramp-down [s]   -tdown  ramp-down time [s]
+//
+// Note for editors: FreeFEM identifiers cannot contain "_" (underscore).
+// =============================================================================
+
+// Read "-key value" pairs from the command line (used for the overrides above)
+func string argS(string key, string def) {
+    string v = def;
+    for (int i = 0; i < ARGV.n - 1; i++) if (ARGV[i] == key) v = ARGV[i+1];
+    return v;
+}
+
+// -----------------------------------------------------------------------------
+// 1. USER CONFIGURATION
+// -----------------------------------------------------------------------------
+int  bcType       = 0;     // 0 = Dirichlet: prescribed wall temperature Tnew(t)
+                           // 1 = Convective + B' tables: aerothermal edge condition
+                           //     (rho_e u_e C_H and recovery enthalpy Hr), surface
+                           //     chemistry from the B' tables of the chosen Environment
+                           // 2 = Convective + heat flux: prescribed net wall heat flux
+                           //     qconvbc(t); no B' tables, no recession
+
+bool useRadiation = true;  // surface re-radiation on/off      (bcType = 1 or 2)
+bool useAblation  = false; // bcType = 1 only.
+                           //   true : B' tables are used -> blowing correction, wall
+                           //          enthalpy hw, char ablation B'c and surface recession
+                           //   false: B' tables NOT used -> wall flux is simply
+                           //          rho_e u_e C_H * Hr - re-radiation (no blowing, hw = 0,
+                           //          no recession). The Environment then only sets the
+                           //          wall pressure.
+
+string Environment = argS("-env", "Earth");   // "Earth", "Mars", "Venus" or "Titan"
+string heatbc      = argS("-heat", "high");   // "low", "intermediate" or "high"  (bcType = 1)
+
+bool ploton  = false;      // true: plot the solution on screen every time step (slow)
+bool plotT   = true;       //   ... plot temperature
+bool plotrho = false;      //   ... plot density
+bool plotpr  = false;      //   ... plot pressure
+
+// -----------------------------------------------------------------------------
+// 2. HEATING RAMP  (trapezoidal pulse, see Datafolder/bc/Boundary1.idp)
+//    Every boundary-condition history is  base + (peak - base) * pulse(t).
+// -----------------------------------------------------------------------------
+real tRampUp   = atof(argS("-tup",   "0.1"));   // [s] ramp-up duration (0 -> plateau)
+real tRampOff  = atof(argS("-toff",  "60"));    // [s] time at which the ramp-down starts (end of plateau)
+real tRampDown = atof(argS("-tdown", "0.1"));   // [s] ramp-down duration (plateau -> 0)
+
+real reuechPeak = 0.3;     // [kg/m2/s] plateau of rho_e*u_e*C_H           (bcType = 1)
+real qconvPeak  = 5e5;     // [W/m2]    plateau of net wall heat flux      (bcType = 2)
+real TwPeak     = 1644;    // [K]       plateau of wall temperature        (bcType = 0)
+
+// plateau of the recovery enthalpy Hr [J/kg] for each heating level (bcType = 1).
+// To add your own level: add one branch here, e.g.   else if (heatbc == "medium") HrPeak = 8e6;
+real HrPeak = 0;
+if      (heatbc == "low")          HrPeak = 1.5e6;
+else if (heatbc == "intermediate") HrPeak = 1.33e7;
+else if (heatbc == "high")         HrPeak = 2.5e7;
+
+// -----------------------------------------------------------------------------
+// 3. NUMERICS  (production values; use the command-line overrides for quick tests)
+// -----------------------------------------------------------------------------
+real dt   = atof(argS("-dt",   "0.005"));   // time step [s]
+int  ele  = atoi(argS("-ele",  "500"));     // number of mesh elements
+real tend = atof(argS("-tend", "120"));     // end time [s]
+real L    = 0.05;                           // material thickness [m]
+
+// -----------------------------------------------------------------------------
+// 4. Case name, labels, and input checks
+// -----------------------------------------------------------------------------
+string bcName, bcTag, radName, ablName;
+
+if (bcType == 0) {
+    bcName = "Dirichlet";
+    bcTag  = "Dirichlet";
+} else if (bcType == 1) {
+    bcName = "Convective/B'";    // used only for the info.dat header
+    bcTag  = "Bprime";
+} else {
+    bcName = "Convective/Q";
+    bcTag  = "Qconv";
+}
+
+if (useRadiation) radName = "ON"; else radName = "OFF";
+if (useAblation)  ablName = "ON"; else ablName = "OFF";
+
+if (bcType == 1 && HrPeak <= 0) {
+    cout << "ERROR: unknown heating level '" << heatbc << "'. Define it in section 2 of params.idp." << endl;
+    exit(1);
+}
+
+// Output folder (it is deleted and recreated at every run)
+string casename;
+if (bcType == 1)
+    casename = "case_" + Environment + "_" + bcTag + "_" + heatbc;   // case_Earth_Bprime_low
+else
+    casename = "case_" + Environment + "_" + bcTag;                  // case_Earth_Qconv, case_Earth_Dirichlet
+
+// -----------------------------------------------------------------------------
+// 5. Physical / numerical constants
+// -----------------------------------------------------------------------------
+func idt = 1./dt;
+real rhov = 280, rhoc = 220;   // virgin / fully-charred density [kg/m3]
+real vf2  = 0.5;               // resin volume split between constituents A and B
+real Tamb2 = 300;              // ambient temperature [K]
+real sig  = 5.67E-8;           // Stefan-Boltzmann constant [W/m2/K4]
+real vir98 = 278.8;            // density threshold: 98% virgin
+real char02 = 221.2;           // density threshold: 2% char remaining
+real sum = 0;
+real snet = 0;                 // cumulative surface recession [m]
+
+// -----------------------------------------------------------------------------
+// 6. Material property tables (pyrolysis gas thermodynamics + virgin/char solid)
+//    Paths are relative: run FreeFem++ from inside the case folder
+//    (Tutorials/<case>/), so that ../../Datafolder is found.
+// -----------------------------------------------------------------------------
+int num = 152; int num2 = 3775; int num3 = 115; int num4 = 13;
+real[int] TE3(num), Hpref(num), Muref(num), rhogref(num), Mref(num), cpgref(num), gammaref(num);
+real[int] bgref(num2), Tref(num2), bcref(num2), Hwref(num2);
+real[int] tsurref(num3), Tsurref(num3);
+real[int] TE4(num4), cpvref(num4), kvref(num4), hvref(num4), cpcref(num4), kcref(num4), hcref(num4);
+
+{
+    // T, M, cp, gamma, h, mu, rho of the pyrolysis gas
+    ifstream IST("../../Datafolder/tacotdata/pyrogas_prop.txt");
+    for (int i = 0; i < num; i++)
+        IST >> TE3[i] >> Mref[i] >> cpgref[i] >> gammaref[i] >> Hpref[i] >> Muref[i] >> rhogref[i];
+}
+{
+    // T, cp/k/h of virgin material, cp/k/h of char
+    ifstream IST4("../../Datafolder/tacotdata/materialprop.dat");
+    for (int i = 0; i < num4; i++)
+        IST4 >> TE4(i) >> cpvref(i) >> kvref(i) >> hvref(i) >> cpcref(i) >> kcref(i) >> hcref(i);
+}
+
+// -----------------------------------------------------------------------------
+// 7. Environment: wall pressure [Pa] and B' table
+//    The wall pressure is constant during a run. The B' table of each environment
+//    is the file Datafolder/tacotdata/Bprimetables/Bprime_table_modified_<Environment>.dat
+//    (columns: P [Pa]  Tw [K]  B'g  B'c  hw [J/kg]).
+//    To add an environment: add its table file (same name pattern) and one
+//    "else if" line below with its wall pressure.
+// -----------------------------------------------------------------------------
+real prwall = 0;
+if      (Environment == "Earth") prwall = 101325;
+else if (Environment == "Mars")  prwall = 610;
+else if (Environment == "Venus") prwall = 9.2e6;
+else if (Environment == "Titan") prwall = 146900;
+if (prwall <= 0) {
+    cout << "ERROR: unknown Environment '" << Environment << "'. Define its wall pressure in section 7 of params.idp." << endl;
+    exit(1);
+}
+
+int nBprime = 61004;           // rows in a table = NPb * NBg * NTw (see below)
+real[int] Prtab(nBprime), Ttab(nBprime), Bgtab(nBprime), Bctab(nBprime), hwtab(nBprime);
+{
+    ifstream ISTB("../../Datafolder/tacotdata/Bprimetables/Bprime_table_modified_" + Environment + ".dat");
+    for (int i = 0; i < nBprime; i++)
+        ISTB >> Prtab[i] >> Ttab[i] >> Bgtab[i] >> Bctab[i] >> hwtab[i];
+}
+
+// -----------------------------------------------------------------------------
+// 8. B' table lookup: trilinear interpolation in (log10 P, B'g, Tw)
+//    Table layout: P (outer) x B'g (middle) x Tw (inner), uniform in Tw and B'g
+//    Inputs outside the table are clamped to the table edge; a warning is printed
+//    once (pressure at start-up, Tw and B'g at the first occurrence).
+// -----------------------------------------------------------------------------
+int NPb = 4, NBg = 101, NTw = 151;
+
+real[int] Plog(NPb), Bgax(NBg), Twax(NTw);
+for (int k = 0; k < NPb; k++) Plog[k] = log10(Prtab[k*NBg*NTw]);
+for (int j = 0; j < NBg; j++) Bgax[j] = Bgtab[j*NTw];
+for (int i = 0; i < NTw; i++) Twax[i] = Ttab[i];
+
+real Twmin = Twax[0],  Twmax = Twax[NTw-1], dTw = Twax[1] - Twax[0];
+real Bgmin = Bgax[0],  Bgmax = Bgax[NBg-1], dBg = Bgax[1] - Bgax[0];
+
+if (bcType == 1 && useAblation && (log10(prwall) < Plog[0] - 1e-9 || log10(prwall) > Plog[NPb-1] + 1e-9)) {
+    cout << "WARNING: wall pressure of " << Environment << " (" << prwall << " Pa) is outside the B' table range ["
+         << 10^Plog[0] << ", " << 10^Plog[NPb-1] << "] Pa." << endl
+         << "         The nearest table pressure is used. Treat the results as indicative only." << endl;
+}
+
+bool warnTw = false, warnBg = false;   // "already warned" flags
+real bcI = 0, hwI = 0;                 // outputs of lookupBprime
+
+// Sets bcI (B'c) and hwI (hw [J/kg]) globally; returns 0.
+func real lookupBprime(real P, real Tw, real Bg) {
+    // pressure (log scale; only 4 nodes so a short search is fine)
+    real xp = min(max(log10(max(P, 1e-30)), Plog[0]), Plog[NPb-1]);
+    int k = 0;
+    while (k < NPb-2 && Plog[k+1] <= xp) k++;
+    real wp = (xp - Plog[k]) / (Plog[k+1] - Plog[k]);
+
+    // temperature (uniform grid -> direct index)
+    if (!warnTw && (Tw < Twmin || Tw > Twmax)) {
+        cout << "WARNING: wall temperature " << Tw << " K outside the B' table range [" << Twmin << ", " << Twmax << "] K; clamped." << endl;
+        warnTw = true;
+    }
+    real xt = (min(max(Tw, Twmin), Twmax) - Twmin) / dTw;
+    int i = min(int(xt), NTw-2);
+    real wt = xt - i;
+
+    // B'g (uniform grid -> direct index)
+    if (!warnBg && (Bg < Bgmin - 1e-3 || Bg > Bgmax + 1e-3)) {
+        cout << "WARNING: B'g = " << Bg << " outside the B' table range [" << Bgmin << ", " << Bgmax << "]; clamped." << endl
+             << "         (First occurrence only. A brief excursion at the end of a ramp-down, where rho_e*u_e*C_H -> 0," << endl
+             << "          is harmless; clamping during heating means the table is being extrapolated.)" << endl;
+        warnBg = true;
+    }
+    real xb = (min(max(Bg, Bgmin), Bgmax) - Bgmin) / dBg;
+    int j = min(int(xb), NBg-2);
+    real wb = xb - j;
+
+    real b = 0, h = 0;
+    for (int a = 0; a < 2; a++)
+        for (int c = 0; c < 2; c++)
+            for (int e = 0; e < 2; e++) {
+                real w = (a ? wp : 1-wp) * (c ? wb : 1-wb) * (e ? wt : 1-wt);
+                int id = ((k+a)*NBg + (j+c))*NTw + (i+e);
+                b += w * Bctab[id];
+                h += w * hwtab[id];
+            }
+    bcI = b;
+    hwI = h;
+    return 0;
+}
