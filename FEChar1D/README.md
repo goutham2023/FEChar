@@ -116,8 +116,6 @@ Every boundary-condition history is a trapezoidal pulse, defined once by the mac
 To use another heating level, add one `else if` branch in `params.idp` (section 2). For a completely different shape, replace the macros in `Boundary1.idp` by any function of time in SI units.
 
 ## Limitations
-
-- **B' table pressure range.** All four tables cover only **101.3 Pa to 101 325 Pa (0.001 to 1 atm)**. A wall pressure outside that range is clamped to the nearest table pressure and a warning is printed at start-up. Earth and Mars are inside the range. **Venus (9.2 MPa) and Titan (146.9 kPa) are above it**, so those runs use the 1 atm table data. Read their results with that in mind until tables for the correct pressures are generated.
 - A one-time warning is also printed the first time the wall temperature leaves 250 to 4000 K or `B'g` leaves 0 to 10 (values are clamped). A brief `B'g` excursion at the end of a ramp-down is harmless: `B'g` is the pyrolysis-gas flux divided by `ρeueCH`, which goes to zero there.
 - 1D through-thickness only, Darcy gas transport, equilibrium surface chemistry, and no mechanical response (stress, cracking, spallation). See [`docs/THEORY.md`](docs/THEORY.md).
 
@@ -200,12 +198,6 @@ The solver only calls macro names such as `cpv`, `kv`, `hv`, `cpc`, `kc`, `hc` a
 | `Compile error ... macro2.idp` or odd errors in a macro | File saved with Windows (CRLF) line endings. Convert to LF (`.gitattributes` prevents this in Git) |
 | `Sorry error in Optimization ... nan` | The iteration diverged: use `dt <= 0.005` (tested with 100 to 500 elements) |
 | `WARNING: wall pressure ... outside the B' table range` | Expected for Venus and Titan, see Limitations |
-
-## Validating changes
-
-There is no automated test suite. Run the reference case before and after a change and compare with
-[`reference_results/`](Tutorials/ConvectiveRamp_Bprime/reference_results) (the command is in its README):
-`Tw` in `boundarydat.dat` and the recession history in `BC.dat` should be unchanged within numerical noise.
 
 ## License
 
