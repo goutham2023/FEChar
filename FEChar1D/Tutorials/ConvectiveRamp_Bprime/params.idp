@@ -71,7 +71,7 @@ else if (heatbc == "high")         HrPeak = 2.5e7;
 // -----------------------------------------------------------------------------
 real dt   = atof(argS("-dt",   "0.005"));   // time step [s]
 int  ele  = atoi(argS("-ele",  "500"));     // number of mesh elements
-real tend = atof(argS("-tend", "1"));     // end time [s]
+real tend = atof(argS("-tend", "120"));     // end time [s]
 real L    = 0.05;                           // material thickness [m]
 
 // -----------------------------------------------------------------------------
@@ -193,11 +193,6 @@ for (int i = 0; i < NTw; i++) Twax[i] = Ttab[i];
 real Twmin = Twax[0],  Twmax = Twax[NTw-1], dTw = Twax[1] - Twax[0];
 real Bgmin = Bgax[0],  Bgmax = Bgax[NBg-1], dBg = Bgax[1] - Bgax[0];
 
-if (bcType == 1 && useAblation && (log10(prwall) < Plog[0] - 1e-9 || log10(prwall) > Plog[NPb-1] + 1e-9)) {
-    cout << "WARNING: wall pressure of " << Environment << " (" << prwall << " Pa) is outside the B' table range ["
-         << 10^Plog[0] << ", " << 10^Plog[NPb-1] << "] Pa." << endl
-         << "         The nearest table pressure is used. Treat the results as indicative only." << endl;
-}
 
 bool warnTw = false, warnBg = false;   // "already warned" flags
 real bcI = 0, hwI = 0;                 // outputs of lookupBprime
