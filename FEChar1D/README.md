@@ -189,16 +189,6 @@ At each step the solver computes `B'g` from the pyrolysis-gas flux and the edge 
 
 The solver only calls macro names such as `cpv`, `kv`, `hv`, `cpc`, `kc`, `hc` and `denvarA/B/C`. To change the material, replace `Datafolder/tacotdata/macro2.idp` and its `.dat` / `.txt` tables. `main.edp` stays the same.
 
-## Troubleshooting
-
-| Message | Cause and fix |
-|---|---|
-| `Load error : msh3` | FreeFEM without the `msh3` plugin, see the installation note above |
-| `Error opening file ../../Datafolder/...` | FreeFEM was started outside the tutorial folder. `cd` into `Tutorials/<case>/` first |
-| `Compile error ... macro2.idp` or odd errors in a macro | File saved with Windows (CRLF) line endings. Convert to LF (`.gitattributes` prevents this in Git) |
-| `Sorry error in Optimization ... nan` | The iteration diverged: use `dt <= 0.005` (tested with 100 to 500 elements) |
-| `WARNING: wall pressure ... outside the B' table range` | Expected for Venus and Titan, see Limitations |
-
 ## License
 
 MIT, see [`LICENSE`](LICENSE).
