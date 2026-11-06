@@ -1,1 +1,11 @@
-cff-version:1.2.0
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "FEChAR 1D: a finite-element code for the thermal response of ablative heat-shield materials"
+version: 0.1.0
+date-released: 2026-11-06
+license: MIT
+repository-code: "https://github.com/goutham2023/FEChAR"
+authors:
+  - family-names: Girish
+    given-names: Goutham
+    orcid: "https://orcid.org/0000-0001-5503-0758"
